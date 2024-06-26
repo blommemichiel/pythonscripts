@@ -1,14 +1,13 @@
 import subprocess, platform, re
 from colorama import init, Fore
 
-init()
 
+init()
 
 def list_open_networks():
     # Get the name of the operating system.
     os_name = platform.system()
 
-    # Check if the OS is Windows.
     if os_name == "Windows":
         # Command to list Wi-Fi networks on Windows.
         list_networks_command = 'netsh wlan show networks'
@@ -17,72 +16,70 @@ def list_open_networks():
             output = subprocess.check_output(list_networks_command, shell=True, text=True)
             networks = []
 
+            ssid = None
             # Parse the output to find open Wi-Fi networks.
             for line in output.splitlines():
                 if "SSID" in line:
                     # Extract the SSID (Wi-Fi network name).
                     ssid = line.split(":")[1].strip()
-                elif "Authentication" in line and "Open" in line:
+                elif "Authentication" in line and "Open" in line and ssid:
                     # Check if the Wi-Fi network has open authentication.
                     networks.append(ssid)
+                    ssid = None
 
-            # Check if any open networks were found.
-            if len(networks) > 0:
-                # Print a message for open networks with colored output.
-                print(f'{Fore.LIGHTMAGENTA_EX}[+] Open Wifi networks in range: \n')
-                for each_network in networks:
-                    print(f"{Fore.GREEN}[+] {each_network}")
-            else:
-                # Print a message if no open networks were found.
-                print(f"{Fore.RED}[-] No open wifi networks in range")
+            # Print the list of open networks
+            print_open_networks(networks)
 
         except subprocess.CalledProcessError as e:
             # Handle any errors that occur during the execution of the command.
-            print(f"{Fore.RED}Error: {e}")
-            # Return an empty list to indicate that no networks were found.
-            return []
+            print(f"{Fore.RED}Error executing command: {e}")
+        except Exception as e:
+            # Handle any other exceptions.
+            print(f"{Fore.RED}An error occurred: {e}")
 
     elif os_name == "Linux":
         try:
             # Run nmcli to list available Wi-Fi networks.
-            result = subprocess.run(["nmcli", "--fields", "SECURITY,SSID", "device", "wifi", "list"],
-                                    stdout=subprocess.PIPE,
-                                    text=True, check=True)
-
+            result = subprocess.run(["nmcli", "--terse", "--fields", "SECURITY,SSID", "device", "wifi", "list"],
+                                    stdout=subprocess.PIPE, text=True, check=True)
             # Access the captured stdout.
             output = result.stdout.strip()
+            networks = []
 
-            # Define a regex pattern to capture SSID and Security.
-            pattern = re.compile(r'^(?P<security>[^\s]+)\s+(?P<ssid>.+)$', re.MULTILINE)
+            # Parse the output to find open Wi-Fi networks.
+            for line in output.splitlines():
+                # Split the line into security and SSID fields.
+                security, ssid = line.split(':')
+                # Check if the network is open (no security).
+                if security == "--":
+                    networks.append(ssid)
 
-            # Find all matches in the output.
-            matches = pattern.finditer(output)
-
-            # Skip the first match, which is the header.
-            next(matches, None)
-            print(f"{Fore.LIGHTMAGENTA_EX}[+] Open Wifi networks in range: \n")
-            # Loop through all matches (results)
-            for match in matches:
-                security = match.group('security')
-                ssid = match.group('ssid')
-                full_match = f"{Fore.GREEN}[+] SSID: {ssid} -------> Security: {security}"
-                # Check if the indicator of an open network in our Full match (result).
-                if "Security: --" in full_match:
-                    print(f"{Fore.GREEN}[+] {ssid}")
-                else:
-                    print(f"{Fore.RED}[-] No open Wifi networks in range.")
+            # Print the list of open networks
+            print_open_networks(networks)
 
         except subprocess.CalledProcessError as e:
-            print(f"Error running nmcli: {e}")
+            # Handle errors running nmcli.
+            print(f"{Fore.RED}Error running nmcli: {e}")
         except Exception as e:
-            print(f"An error occurred: {e}")
+            # Handle any other exceptions.
+            print(f"{Fore.RED}An error occurred: {e}")
 
     else:
+        # Inform the user if the operating system is not supported.
         print(f"{Fore.RED}Unsupported operating system.")
-        return []
 
+def print_open_networks(networks):
+    # Check if any open networks were found.
+    if networks:
+        # Print a message for open networks with colored output.
+        print(f'{Fore.LIGHTMAGENTA_EX}[+] Open Wi-Fi networks in range:\n')
+        for each_network in networks:
+            print(f"{Fore.GREEN}[+] {each_network}")
+    else:
+        # Print a message if no open networks were found.
+        print(f"{Fore.RED}[-] No open Wi-Fi networks in range.")
 
-# Call the function.
-list_open_networks()
-
+# Call the function to list open networks.
+if __name__ == "__main__":
+    list_open_networks()
 
